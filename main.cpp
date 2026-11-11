@@ -306,10 +306,13 @@ public:
   Mtx mul(const Mtx & oth) const;
   Mtx transpose() const;
   Mtx add_row(int init) const;
+  int det() const;
 
   void print() const;
 
 private:
+  Mtx minor(size_t row, size_t col) const;
+
   size_t m_;
   size_t n_;
   Ints data_;
@@ -452,6 +455,56 @@ Mtx Mtx::add_row(int init) const
   return res;
 }
 
+Mtx Mtx::minor(size_t row, size_t col) const
+{
+  Mtx res(n_ - 1, m_ - 1);
+  size_t ri = 0;
+  for (size_t i = 0; i < m_; ++i)
+  {
+    if (i == row)
+    {
+      continue;
+    }
+
+    size_t rj = 0;
+    for (size_t j = 0; j < n_; ++j)
+    {
+      if (j == col)
+      {
+        continue;
+      }
+
+      res.set(ri, rj, get(i, j));
+      ++rj;
+    }
+    ++ri;
+  }
+
+  return res;
+}
+
+int Mtx::det() const
+{
+  if (m_ != n_ || m_ == 0)
+  {
+    throw std::logic_error("Determinant needs a square matrix");
+  }
+  if (m_ == 1)
+  {
+    return get(0, 0);
+  }
+
+  int result = 0;
+  int sign = 1;
+  for (size_t j = 0; j < n_; ++j)
+  {
+    result += sign * get(0, j) * minor(0, j).det();
+    sign = -sign;
+  }
+
+  return result;
+}
+
 void Mtx::print() const
 {
   for (size_t i = 0; i < m_; ++i)
@@ -460,30 +513,104 @@ void Mtx::print() const
   }
 }
 
-int main()
+class Plot
 {
-  Mtx a(3, 2);
-  Mtx b(2, 3);
-  for (size_t i = 0; i < 2; ++i)
+public:
+  void set(int x, int y);
+  int calc(int x) const;
+  int solve(int y) const;
+  Plot append(p_t p) const;
+
+private:
+  Ints data_;
+};
+
+void Plot::set(int x, int y)
+{
+  for (size_t i = 0; i < data_.getSize(); i += 2)
   {
-    for (size_t j = 0; j < 3; ++j)
+    if (data_.get(i) == x)
     {
-      a.set(i, j, static_cast< int >(i * 3 + j + 1));
-      b.set(j, i, static_cast< int >(i + j));
+      data_.set(i + 1, y);
+      return;
     }
   }
 
-  a.print();
-  std::cout << '\n';
-  b.print();
+  data_ = data_.append(x).append(y);
+}
+
+int Plot::calc(int x) const
+{
+  for (size_t i = 0; i < data_.getSize(); i += 2)
+  {
+    if (data_.get(i) == x)
+    {
+      return data_.get(i + 1);
+    }
+  }
+
+  throw std::logic_error("No such x");
+}
+
+int Plot::solve(int y) const
+{
+  for (size_t i = 1; i < data_.getSize(); i += 2)
+  {
+    if (data_.get(i) == y)
+    {
+      return data_.get(i - 1);
+    }
+  }
+
+  throw std::logic_error("No such y");
+}
+
+Plot Plot::append(p_t p) const
+{
+  Plot result(*this);
+  result.set(p.x, p.y);
+
+  return result;
+}
+
+int main()
+{
+  Ints a(3, 67);
+  Ints b(3, 69);
+  printInts(a + b + a);
+  printInts(a.append(1).append(b));
+
+  Points pts;
+  pts = pts.append({1, 2}).append({3, 4});
+  pts.set(0, {5, 6});
+  for (size_t i = 0; i < pts.getSize(); ++i)
+  {
+    p_t p = pts.get(i);
+    std::cout << '(' << p.x << ", " << p.y << ") ";
+  }
   std::cout << '\n';
 
-  a.sum(a).print();
-  std::cout << '\n';
-  a.mul(b).print();
-  std::cout << '\n';
-  a.transpose().print();
-  std::cout << '\n';
-  a.add_row(9).print();
+  Mtx m(3, 3);
+  int vals[9] = {2, 0, 1, 1, 3, 2, 1, 1, 1};
+  for (size_t i = 0; i < 3; ++i)
+  {
+    for (size_t j = 0; j < 3; ++j)
+    {
+      m.set(i, j, vals[i * 3 + j]);
+    }
+  }
+
+  m.print();
+  std::cout << "det = " << m.det() << '\n';
+  m.transpose().print();
+  m.mul(m).print();
+  m.add_row(7).print();
+
+  Plot pl;
+  pl.set(1, 10);
+  pl.set(2, 20);
+  pl = pl.append({3, 30});
+  pl.set(2, 25);
+  std::cout << pl.calc(2) << ' ' << pl.solve(30) << '\n';
 }
 
