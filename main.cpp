@@ -1,6 +1,25 @@
-#include <utility>
 #include <cstddef>
+#include <iostream>
 #include <limits>
+#include <stdexcept>
+#include <utility>
+
+struct p_t
+{
+  int x;
+  int y;
+};
+
+int safeAdd(int a, int b)
+{
+  if ((b > 0 && a > std::numeric_limits< int >::max() - b)
+      || (b < 0 && a < std::numeric_limits< int >::min() - b))
+  {
+    throw std::logic_error("Overflow");
+  }
+
+  return a + b;
+}
 
 class Ints
 {
@@ -8,7 +27,10 @@ public:
   Ints();
   Ints(size_t size, int value);
   Ints(const Ints & rhs);
-  Ints & Ints::operator=(const Ints & rhs);
+  Ints(Ints && rhs) noexcept;
+  Ints & operator=(const Ints & rhs);
+  Ints & operator=(Ints && rhs) noexcept;
+  Ints operator+(const Ints & rhs) const;
   ~Ints();
 
   size_t getSize() const noexcept;
@@ -17,8 +39,8 @@ public:
   void setSafe(size_t id, int i);
   int getSafe(size_t id) const;
 
-  Ints append(int i);
-  Ints append(Ints b);
+  Ints append(int i) const;
+  Ints append(const Ints & b) const;
 
   static Ints unitializatedInts(size_t size);
 
@@ -30,37 +52,50 @@ private:
 };
 
 Ints::Ints():
-  size(0),
-  data(nullptr),
+  capacity_(0),
+  size_(0),
+  data_(nullptr)
 {}
 
 Ints::Ints(size_t size, int value):
-  size(size),
-  data(new int [size])
+  capacity_(size),
+  size_(size),
+  data_(new int [size])
 {
-  for (size_t i = 0; i < size, ++i)
+  for (size_t i = 0; i < size_; ++i)
   {
-    data[i] = value;
+    data_[i] = value;
   }
 }
 
-static Ints::Ints Ints::unitializatedInts(size_t size)
+Ints Ints::unitializatedInts(size_t size)
 {
   Ints temp;
-  temp.size = size;
-  temp.data = new int [size];
+  temp.capacity_ = size;
+  temp.data_ = new int [size];
 
   return temp;
 }
 
 Ints::Ints(const Ints & rhs):
-  size(rhs.size),
-  data(new int [size])
+  capacity_(rhs.size_),
+  size_(rhs.size_),
+  data_(new int [rhs.size_])
 {
-  for (size_t i = 0; i < size; ++i)
+  for (size_t i = 0; i < size_; ++i)
   {
-    data[i] = rhs.data[i];
+    data_[i] = rhs.data_[i];
   }
+}
+
+Ints::Ints(Ints && rhs) noexcept:
+  capacity_(rhs.capacity_),
+  size_(rhs.size_),
+  data_(rhs.data_)
+{
+  rhs.capacity_ = 0;
+  rhs.size_ = 0;
+  rhs.data_ = nullptr;
 }
 
 Ints & Ints::operator=(const Ints & rhs)
@@ -72,35 +107,70 @@ Ints & Ints::operator=(const Ints & rhs)
 
   Ints temp(rhs);
 
-  std::swap(size, temp.size)
-  std::swap(data, temp.data)
+  std::swap(capacity_, temp.capacity_);
+  std::swap(size_, temp.size_);
+  std::swap(data_, temp.data_);
 
   return *this;
 }
 
+Ints & Ints::operator=(Ints && rhs) noexcept
+{
+  if (this != &rhs)
+  {
+    delete [] data_;
+
+    capacity_ = rhs.capacity_;
+    size_ = rhs.size_;
+    data_ = rhs.data_;
+
+    rhs.capacity_ = 0;
+    rhs.size_ = 0;
+    rhs.data_ = nullptr;
+  }
+
+  return *this;
+}
+
+Ints Ints::operator+(const Ints & rhs) const
+{
+  if (getSize() != rhs.getSize())
+  {
+    throw std::invalid_argument("Arrays have different size");
+  }
+
+  Ints result(getSize(), 0);
+  for (size_t i = 0; i < getSize(); ++i)
+  {
+    result.set(i, safeAdd(get(i), rhs.get(i)));
+  }
+
+  return result;
+}
+
 Ints::~Ints()
 {
-  delete [] data;
+  delete [] data_;
 }
 
-size_t getSize() const noexcept
+size_t Ints::getSize() const noexcept
 {
-  return size;
+  return size_;
 }
 
-void Ints::set(size_t id, int i)
+void Ints::set(size_t id, int i) noexcept
 {
-  data[id] = i;
+  data_[id] = i;
 }
 
-int Ints::get(size_t id)
+int Ints::get(size_t id) const noexcept
 {
-  return data[id];
+  return data_[id];
 }
 
 void Ints::setSafe(size_t id, int i)
 {
-  if (id > size)
+  if (id >= size_)
   {
     throw std::logic_error("Invalid value");
   }
@@ -108,9 +178,9 @@ void Ints::setSafe(size_t id, int i)
   set(id, i);
 }
 
-int Ints::getSafe(size_t id)
+int Ints::getSafe(size_t id) const
 {
-  if (id > size)
+  if (id >= size_)
   {
     throw std::logic_error("Invalid value");
   }
@@ -118,133 +188,126 @@ int Ints::getSafe(size_t id)
   return get(id);
 }
 
+void Ints::resize()
+{
+  size_t newCapacity = (capacity_ == 0) ? 1 : capacity_ * 2;
+  int * newData = new int [newCapacity];
 
-Ints Ints::append(int i)
+  for (size_t i = 0; i < size_; ++i)
+  {
+    newData[i] = data_[i];
+  }
+
+  delete [] data_;
+  data_ = newData;
+  capacity_ = newCapacity;
+}
+
+Ints Ints::append(int i) const
 {
   Ints result(*this);
 
-  if (result.capacity < result.size + 1)
+  if (result.capacity_ < result.size_ + 1)
   {
     result.resize();
   }
 
-  result.data[size] = i;
-  ++result.size;
+  result.data_[result.size_] = i;
+  ++result.size_;
 
   return result;
 }
 
-Ints append(Ints b)
+Ints Ints::append(const Ints & b) const
 {
-  Ints result(*this);
+  Ints result = unitializatedInts(size_ + b.size_);
 
-  if ()
+  for (size_t i = 0; i < size_; ++i)
   {
-
+    result.data_[i] = data_[i];
   }
+  for (size_t i = 0; i < b.size_; ++i)
+  {
+    result.data_[size_ + i] = b.data_[i];
+  }
+  result.size_ = size_ + b.size_;
+
+  return result;
 }
 
-class Mtx
+void printInts(const Ints & a)
+{
+  for (size_t i = 0; i < a.getSize(); ++i)
+  {
+    std::cout << a.get(i) << ' ';
+  }
+  std::cout << '\n';
+}
+
+class Points
 {
 public:
-  Mtx();
-  Mtx(size_t m, size_t n);
-  ~Mtx() = default;
-  Mtx sum(const Mtx & oth) const;
-  Ints getCol(size_t id);
-  Ints getRow(size_t id);
+  size_t getSize() const noexcept;
+  void set(size_t id, p_t p);
+  p_t get(size_t id) const;
+  Points append(p_t p) const;
+
 private:
-  size_t m;
-  size_t n;
-  Ints data;
+  Ints data_;
 };
 
-
-Mtx::Mtx():
-  m(0),
-  n(0),
-{}
-
-Mtx::Mtx(size_t m, size_t n):
-  m(m),
-  n(n),
+size_t Points::getSize() const noexcept
 {
-  if (m > std::numeric_limits< size_t >::max() / n)
-  {
-    throw std::logic_error("Owerflow");
-  }
-
-  data(n * m, 0);
+  return data_.getSize() / 2;
 }
 
-Mtx Mtx::sum(const Mtx & oth) const
+void Points::set(size_t id, p_t p)
 {
-  Mtx res(m, n);
-  for (size_t i = 0; i < data.getSize(); ++i)
+  if (id >= getSize())
   {
-    if (oth.data.get(i) > std::numeric_limits< size_t >::max() - data.get(i))
-    {
-      throw std::logic_error("Owerflow");
-    }
-
-    res.data.set(i, oth.data.get(i) + data.get(i));
+    throw std::logic_error("Invalid value");
   }
 
-  return res;
+  data_.set(2 * id, p.x);
+  data_.set(2 * id + 1, p.y);
 }
 
-Ints Mtx::getCol(size_t id)
+p_t Points::get(size_t id) const
 {
-  Ints res(m, 0);
-  for (size_t i = 0; i < m; ++i)
+  if (id >= getSize())
   {
-    res.append(i * n + id);
+    throw std::logic_error("Invalid value");
   }
 
-  return res;
+  return {data_.get(2 * id), data_.get(2 * id + 1)};
 }
 
-Ints Mtx::getRow(size_t id)
+Points Points::append(p_t p) const
 {
-  Ints res(n, 0);
-  for (size_t i = 0; i < n; ++i)
-  {
-    res.append(id * m + i);
-  }
+  Points result;
+  result.data_ = data_.append(p.x).append(p.y);
 
-  return res;
-}
-
-Mtx Mtx::mul(const Mtx & oth) const;
-{
-  //mn np = mp
-  //m1n1 m2n2 = m1n2
-  Mtx res(m, oth.n);
-  int sm = 0;
-  for (size_t i = 0; i < m; ++i)
-  {
-    for (size_t j = 0; j < oth.n; ++j)
-    {
-      Ints row = getRow(i);
-      Ints col = oth.getCol(j);
-
-      sm = 0;
-      for (size_t z = 0; z < m; z++)
-      {
-        sm += row[z] * col[z]
-      }
-
-      res.data.set(i * n + j, sm);
-    }
-  }
-
-  return res;
+  return result;
 }
 
 int main()
 {
-  Ints a(10, 67);
-  Ints b(10, 69);
-  Ints c = a + b + a + b + a;
+  Ints a(3, 67);
+  Ints b(3, 69);
+  Ints c = a + b + a;
+  printInts(c);
+
+  Ints d = c.append(1).append(a);
+  printInts(d);
+
+  Points pts;
+  pts = pts.append({1, 2}).append({3, 4});
+  pts.set(0, {5, 6});
+  for (size_t i = 0; i < pts.getSize(); ++i)
+  {
+    p_t p = pts.get(i);
+    std::cout << '(' << p.x << ", " << p.y << ") ";
+  }
+  std::cout << '\n';
 }
 
