@@ -290,24 +290,200 @@ Points Points::append(p_t p) const
   return result;
 }
 
+class Mtx
+{
+public:
+  Mtx();
+  Mtx(size_t n, size_t m);
+  ~Mtx() = default;
+
+  int get(size_t i, size_t j) const;
+  void set(size_t i, size_t j, int value);
+  Ints getRow(size_t id) const;
+  Ints getCol(size_t id) const;
+
+  Mtx sum(const Mtx & oth) const;
+  Mtx mul(const Mtx & oth) const;
+  Mtx transpose() const;
+  Mtx add_row(int init) const;
+
+  void print() const;
+
+private:
+  size_t m_;
+  size_t n_;
+  Ints data_;
+};
+
+Mtx::Mtx():
+  m_(0),
+  n_(0),
+  data_()
+{}
+
+Mtx::Mtx(size_t n, size_t m):
+  m_(m),
+  n_(n),
+  data_()
+{
+  if (m != 0 && n > std::numeric_limits< size_t >::max() / m)
+  {
+    throw std::logic_error("Overflow");
+  }
+
+  data_ = Ints(n * m, 0);
+}
+
+int Mtx::get(size_t i, size_t j) const
+{
+  if (i >= m_ || j >= n_)
+  {
+    throw std::logic_error("Invalid index");
+  }
+
+  return data_.get(i * n_ + j);
+}
+
+void Mtx::set(size_t i, size_t j, int value)
+{
+  if (i >= m_ || j >= n_)
+  {
+    throw std::logic_error("Invalid index");
+  }
+
+  data_.set(i * n_ + j, value);
+}
+
+Ints Mtx::getRow(size_t id) const
+{
+  Ints res;
+  for (size_t j = 0; j < n_; ++j)
+  {
+    res = res.append(get(id, j));
+  }
+
+  return res;
+}
+
+Ints Mtx::getCol(size_t id) const
+{
+  Ints res;
+  for (size_t i = 0; i < m_; ++i)
+  {
+    res = res.append(get(i, id));
+  }
+
+  return res;
+}
+
+Mtx Mtx::sum(const Mtx & oth) const
+{
+  if (m_ != oth.m_ || n_ != oth.n_)
+  {
+    throw std::logic_error("Matrices have different size");
+  }
+
+  Mtx res(n_, m_);
+  for (size_t i = 0; i < data_.getSize(); ++i)
+  {
+    res.data_.set(i, safeAdd(data_.get(i), oth.data_.get(i)));
+  }
+
+  return res;
+}
+
+Mtx Mtx::mul(const Mtx & oth) const
+{
+  if (n_ != oth.m_)
+  {
+    throw std::logic_error("Wrong size for multiplication");
+  }
+
+  Mtx res(oth.n_, m_);
+  for (size_t i = 0; i < m_; ++i)
+  {
+    for (size_t j = 0; j < oth.n_; ++j)
+    {
+      Ints row = getRow(i);
+      Ints col = oth.getCol(j);
+
+      int sm = 0;
+      for (size_t z = 0; z < n_; ++z)
+      {
+        sm += row.get(z) * col.get(z);
+      }
+
+      res.set(i, j, sm);
+    }
+  }
+
+  return res;
+}
+
+Mtx Mtx::transpose() const
+{
+  Mtx res(m_, n_);
+  for (size_t i = 0; i < m_; ++i)
+  {
+    for (size_t j = 0; j < n_; ++j)
+    {
+      res.set(j, i, get(i, j));
+    }
+  }
+
+  return res;
+}
+
+Mtx Mtx::add_row(int init) const
+{
+  Mtx res(n_, m_ + 1);
+  for (size_t i = 0; i < m_; ++i)
+  {
+    for (size_t j = 0; j < n_; ++j)
+    {
+      res.set(i, j, get(i, j));
+    }
+  }
+  for (size_t j = 0; j < n_; ++j)
+  {
+    res.set(m_, j, init);
+  }
+
+  return res;
+}
+
+void Mtx::print() const
+{
+  for (size_t i = 0; i < m_; ++i)
+  {
+    printInts(getRow(i));
+  }
+}
+
 int main()
 {
-  Ints a(3, 67);
-  Ints b(3, 69);
-  Ints c = a + b + a;
-  printInts(c);
-
-  Ints d = c.append(1).append(a);
-  printInts(d);
-
-  Points pts;
-  pts = pts.append({1, 2}).append({3, 4});
-  pts.set(0, {5, 6});
-  for (size_t i = 0; i < pts.getSize(); ++i)
+  Mtx a(3, 2);
+  Mtx b(2, 3);
+  for (size_t i = 0; i < 2; ++i)
   {
-    p_t p = pts.get(i);
-    std::cout << '(' << p.x << ", " << p.y << ") ";
+    for (size_t j = 0; j < 3; ++j)
+    {
+      a.set(i, j, static_cast< int >(i * 3 + j + 1));
+      b.set(j, i, static_cast< int >(i + j));
+    }
   }
+
+  a.print();
   std::cout << '\n';
+  b.print();
+  std::cout << '\n';
+
+  a.sum(a).print();
+  std::cout << '\n';
+  a.mul(b).print();
+  std::cout << '\n';
+  a.transpose().print();
+  std::cout << '\n';
+  a.add_row(9).print();
 }
 
