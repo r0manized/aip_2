@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdexcept>
 
 namespace
 {
@@ -8,6 +9,7 @@ namespace
   class Point;
   class Vector;
   class ColoredPoint;
+  class Circle;
   class Brush;
 
   class Planar
@@ -129,6 +131,42 @@ namespace
     Color cl_;
   };
 
+  class Circle: public Planar
+  {
+  public:
+    Circle(Point center, int r):
+      center_(center),
+      r_(r)
+    {
+      if (r_ < 0)
+      {
+        throw std::invalid_argument("Circle: radius must be non-negative");
+      }
+    }
+    virtual ~Circle() = default;
+
+    virtual std::ostream& info(std::ostream& out) override
+    {
+      return out << "Circle";
+    }
+
+    virtual int x() const override
+    {
+      return center_.x();
+    }
+    virtual int y() const override
+    {
+      return center_.y();
+    }
+    virtual int abs_sqr() const override
+    {
+      return center_.abs_sqr();
+    }
+  private:
+    Point center_;
+    int r_;
+  };
+
   class Brush: public Colored
   {
   public:
@@ -165,7 +203,7 @@ void del(Planar* pls[], size_t size)
 
 int main()
 {
-  const size_t cap = 6;
+  const size_t cap = 7;
   Planar* pls[cap];
   size_t size = 0;
   try
@@ -176,6 +214,7 @@ int main()
     pls[size++] = new Vector(Point(3, 4), Point(1, 2));
     pls[size++] = new ColoredPoint(Point(1, 2), Color::RED);
     pls[size++] = new ColoredPoint(Point(3, 4), Color::GREEN);
+    pls[size++] = new Circle(Point(1, 2), 3);
   }
   catch (const std::exception& e)
   {
