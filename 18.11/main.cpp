@@ -4,6 +4,7 @@
 namespace
 {
   enum Color {RED, GREEN, BLUE};
+  const double PI = 3.14159265358979323846;
   class Planar;
   class Colored;
   class Point;
@@ -162,6 +163,23 @@ namespace
     {
       return center_.abs_sqr();
     }
+
+    double sqr() const
+    {
+      return PI * r_ * r_;
+    }
+    void move(Point p)
+    {
+      center_ = p;
+    }
+    void resize(int r)
+    {
+      if (r < 0)
+      {
+        throw std::invalid_argument("Circle: radius must be non-negative");
+      }
+      r_ = r;
+    }
   private:
     Point center_;
     int r_;
@@ -228,4 +246,11 @@ int main()
   }
 
   del(pls, size);
+
+  Circle c(Point(1, 2), 3);
+  print_abs_sqr(std::cout, &c) << ", area = " << c.sqr() << '\n';
+  c.move(Point(5, 5));
+  print_abs_sqr(std::cout, &c) << ", area = " << c.sqr() << '\n';
+  c.resize(4);
+  print_abs_sqr(std::cout, &c) << ", area = " << c.sqr() << '\n';
 }
