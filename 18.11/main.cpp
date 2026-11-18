@@ -11,6 +11,7 @@ namespace
   class Vector;
   class ColoredPoint;
   class Circle;
+  class ColoredCircle;
   class Brush;
 
   class Planar
@@ -185,6 +186,32 @@ namespace
     int r_;
   };
 
+  class ColoredCircle: public Circle, public Colored
+  {
+  public:
+    ColoredCircle(Point center, int r, Color color):
+      Circle(center, r),
+      cl_(color)
+    {}
+    virtual ~ColoredCircle() = default;
+
+    virtual std::ostream& info(std::ostream& out) override
+    {
+      return out << "Colored circle";
+    }
+
+    virtual Color getColor() const override
+    {
+      return cl_;
+    }
+    virtual void setColor(Color color) override
+    {
+      cl_ = color;
+    }
+  private:
+    Color cl_;
+  };
+
   class Brush: public Colored
   {
   public:
@@ -221,7 +248,7 @@ void del(Planar* pls[], size_t size)
 
 int main()
 {
-  const size_t cap = 7;
+  const size_t cap = 8;
   Planar* pls[cap];
   size_t size = 0;
   try
@@ -233,6 +260,7 @@ int main()
     pls[size++] = new ColoredPoint(Point(1, 2), Color::RED);
     pls[size++] = new ColoredPoint(Point(3, 4), Color::GREEN);
     pls[size++] = new Circle(Point(1, 2), 3);
+    pls[size++] = new ColoredCircle(Point(3, 4), 2, Color::BLUE);
   }
   catch (const std::exception& e)
   {
@@ -253,4 +281,13 @@ int main()
   print_abs_sqr(std::cout, &c) << ", area = " << c.sqr() << '\n';
   c.resize(4);
   print_abs_sqr(std::cout, &c) << ", area = " << c.sqr() << '\n';
+
+  ColoredCircle cc(Point(3, 4), 2, Color::BLUE);
+  print_abs_sqr(std::cout, &cc) << ", area = " << cc.sqr()
+    << ", color = " << cc.getColor() << '\n';
+  cc.setColor(Color::GREEN);
+  cc.move(Point(0, 1));
+  cc.resize(5);
+  print_abs_sqr(std::cout, &cc) << ", area = " << cc.sqr()
+    << ", color = " << cc.getColor() << '\n';
 }
