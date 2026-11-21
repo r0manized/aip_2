@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdexcept>
 
 namespace
 {
@@ -226,6 +227,39 @@ namespace
     };
 }
 
+Planar* makePoint(int x, int y)
+{
+    return new Point(x, y);
+}
+
+Planar* makeVector(Point a, Point b)
+{
+    return new Vector(a, b);
+}
+
+Planar* makeColoredPoint(Point p, Color color)
+{
+    return new ColoredPoint(p, color);
+}
+
+Planar* makeCircle(Point center, int radius)
+{
+    if (radius < 0)
+    {
+        throw std::invalid_argument("Circle: radius must be non-negative");
+    }
+    return new Circle(center, radius);
+}
+
+Planar* makeColoredCircle(Point center, int radius, Color color)
+{
+    if (radius < 0)
+    {
+        throw std::invalid_argument("ColoredCircle: radius must be non-negative");
+    }
+    return new ColoredCircle(Circle(center, radius), color);
+}
+
 std::ostream& print_abs_sqr(std::ostream& out, Planar* pl)
 {
     return pl->info(out) << ' ' << pl->abs_sqr();
@@ -241,17 +275,21 @@ void del(Planar* pls[], size_t size)
 
 int main()
 {
-    const size_t cap = 6;
+    const size_t cap = 10;
     Planar* pls[cap];
     size_t size = 0;
     try
     {
-        pls[size++] = new Point(1, 2);
-        pls[size++] = new Point(3, 4);
-        pls[size++] = new Vector(Point(1, 2), Point(3, 4));
-        pls[size++] = new Vector(Point(3, 4), Point(1, 2));
-        pls[size++] = new ColoredPoint(Point(1, 2), Color::RED);
-        pls[size++] = new ColoredPoint(Point(3, 4), Color::GREEN);
+        pls[size++] = makePoint(1, 2);
+        pls[size++] = makePoint(3, 4);
+        pls[size++] = makeVector(Point(1, 2), Point(3, 4));
+        pls[size++] = makeVector(Point(3, 4), Point(1, 2));
+        pls[size++] = makeColoredPoint(Point(1, 2), Color::RED);
+        pls[size++] = makeColoredPoint(Point(3, 4), Color::GREEN);
+        pls[size++] = makeCircle(Point(1, 2), 5);
+        pls[size++] = makeCircle(Point(3, 4), 1);
+        pls[size++] = makeColoredCircle(Point(1, 2), 5, Color::BLUE);
+        pls[size++] = makeColoredCircle(Point(3, 4), 1, Color::GREEN);
     }
     catch (const std::exception& e)
     {
